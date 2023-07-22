@@ -1,5 +1,5 @@
 import { Box, Button } from '@chakra-ui/react';
-import { useState } from 'react';
+import { createContext, useContext, useState } from 'react';
 import { Form } from './components/Form';
 import { Layout, LayoutGrid } from './components/Grid';
 
@@ -8,10 +8,14 @@ const generateChildrenLayout = (noOfChildren: string) => {
         i: `${index}`,
         x: (index * 2) % 12,
         y: Infinity,
-        w: 2,
-        h: 2,
+        w: 4,
+        h: 4,
     }));
 };
+
+const LayoutContext = createContext({ baseLayout: [] as Layout[] });
+
+export const useLayoutContext = () => useContext(LayoutContext);
 
 export default function GridLayout() {
     const [baseLayout, setBaseLayout] = useState<Layout[]>([]);
@@ -24,8 +28,10 @@ export default function GridLayout() {
         noOfChildren: string
     ) => {
         setCount(count + 1);
+
         const childrenLayout =
             Number(noOfChildren) > 0 ? generateChildrenLayout(noOfChildren) : [];
+
         setBaseLayout([
             ...baseLayout,
             {
@@ -42,23 +48,25 @@ export default function GridLayout() {
     };
 
     return (
-        <Box>
-            <Form onAddNewItem={onAddNewItem} />
-            <Button
-                onClick={() => setDisabled((isDisabled) => !isDisabled)}
-                margin={2}
-            >
-                {isDisabled ? 'Enable Edit' : 'Disable Edit'}
-            </Button>
-            <Button onClick={() => setBaseLayout([])} margin={2} colorScheme='red'>
-                Clear
-            </Button>
-            <LayoutGrid
-                layout={baseLayout}
-                itemKey={''}
-                setBaseLayout={setBaseLayout}
-                isDisabled={isDisabled}
-            />
-        </Box>
+        <LayoutContext.Provider value={{ baseLayout }}>
+            <Box>
+                <Form onAddNewItem={onAddNewItem} />
+                <Button
+                    onClick={() => setDisabled((isDisabled) => !isDisabled)}
+                    margin={2}
+                >
+                    {isDisabled ? 'Enable Edit' : 'Disable Edit'}
+                </Button>
+                <Button onClick={() => setBaseLayout([])} margin={2} colorScheme='red'>
+                    Clear
+                </Button>
+                <LayoutGrid
+                    layout={baseLayout}
+                    itemKey={''}
+                    setBaseLayout={setBaseLayout}
+                    isDisabled={isDisabled}
+                />
+            </Box>
+        </LayoutContext.Provider>
     );
 }

@@ -1,4 +1,6 @@
+import { Box, Button } from '@chakra-ui/react';
 import RGL, { WidthProvider } from 'react-grid-layout';
+import { useLayoutContext } from '..';
 import '/node_modules/react-grid-layout/css/styles.css';
 import '/node_modules/react-resizable/css/styles.css';
 
@@ -16,8 +18,8 @@ export type Layout = {
 };
 
 type LayoutGridProps = {
-    layout: Layout[];
-    setBaseLayout: (layout: Layout[]) => void;
+    layout?: Layout[];
+    setBaseLayout?: (layout: Layout[]) => void;
     itemKey: string;
     isDisabled: boolean;
 };
@@ -25,12 +27,13 @@ type LayoutGridProps = {
 const renderLayout = (
     layout: Layout[],
     isDisabled: boolean,
-    setBaseLayout: (layout: Layout[]) => void
+    onAddNested: (itemKey: string) => void,
+    setBaseLayout?: (layout: Layout[]) => void
 ) => {
     return layout.map((item) => {
         return (
             <div key={item.i}>
-                {item.i.startsWith('grid-') && !!item?.layout?.length && (
+                {!!item.layout?.length && (
                     <>
                         <span>{item.i}</span>
                         <LayoutGrid
@@ -41,12 +44,12 @@ const renderLayout = (
                         />
                     </>
                 )}
-                {!item.i.startsWith('grid-') &&
-                    <div>
+                {!item.layout?.length && (
+                    <Box>
+                        <Button onClick={() => onAddNested(item.i)}>Add</Button>
                         <span className='text'>{item.i}</span>
-                        <p>Dummy Text</p>
-                    </div>
-                }
+                    </Box>
+                )}
             </div>
         );
     });
@@ -67,27 +70,71 @@ function mergeArrays(arr1: Layout[], arr2: Layout[]) {
     return finalArray;
 }
 
-export const LayoutGrid = (props: LayoutGridProps) => {
-    function onLayoutChange(newLayout: Layout[], itemKey?: string) {
-        if (!itemKey) {
-            props.setBaseLayout(mergeArrays(props.layout, newLayout));
-            return;
-        }
-
-        const layout = props.layout;
-        const itemIndex = layout.findIndex((item) => item.i === itemKey);
-
-        if (itemIndex !== -1) {
-            props.setBaseLayout?.([
-                ...layout.slice(0, itemIndex),
-                {
-                    ...layout[itemIndex],
-                    layout: newLayout,
-                },
-                ...layout.slice(itemIndex + 1),
-            ]);
+const findDeep = (array: Layout[], key: string): Layout | undefined => {
+    const result = array.find((item) => item.i === key);
+    if (result) {
+        return result;
+    }
+    for (const item of array) {
+        if (item.layout) {
+            const found = findDeep(item.layout, key);
+            if (found) {
+                return found;
+            }
         }
     }
+};
+
+const mergeDeep = (
+    array: Layout[],
+    key: string,
+    newObject: Layout
+): Layout[] => {
+    const result = findDeep(array, key);
+
+    if (result) {
+        return array.map((item: Layout) => {
+            if (item.i === key) {
+                return { ...item, layout: [...(item?.layout ?? []), newObject] };
+            }
+
+            if (item.layout) {
+                return {
+                    ...item,
+                    layout: mergeDeep(item.layout, key, newObject),
+                };
+            }
+
+            return item;
+        });
+    }
+
+    return array;
+};
+
+export const LayoutGrid = (props: LayoutGridProps) => {
+    const { baseLayout } = useLayoutContext();
+
+    function onLayoutChange(newLayout: Layout[], itemKey?: string) {
+        if (!itemKey) {
+            props.setBaseLayout?.(mergeArrays(props?.layout || [], newLayout));
+        }
+    }
+
+    const onAddNested = (itemKey: string) => {
+        const layout = findDeep(baseLayout, itemKey);
+
+        const newLayout = mergeDeep(baseLayout, itemKey, {
+            i: `grid-nested-${props.itemKey}-${itemKey}-${layout?.layout?.length || '0'
+                }`,
+            x: 1,
+            y: Infinity,
+            w: 1,
+            h: 1,
+        });
+
+        props?.setBaseLayout?.(newLayout);
+    };
 
     return (
         <ReactGridLayout
@@ -100,10 +147,15 @@ export const LayoutGrid = (props: LayoutGridProps) => {
             isResizable={!props.isDisabled}
             isDraggable={!props.isDisabled}
             margin={[5, 5]}
-            autoSize
             width={1200}
+            verticalCompact
         >
-            {renderLayout(props.layout, props.isDisabled, props.setBaseLayout)}
+            {renderLayout(
+                props?.layout || [],
+                props.isDisabled,
+                onAddNested,
+                props.setBaseLayout
+            )}
         </ReactGridLayout>
     );
 };
