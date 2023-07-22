@@ -3,9 +3,9 @@ import { createContext, useContext, useState } from 'react';
 import { Form } from './components/Form';
 import { Layout, LayoutGrid } from './components/Grid';
 
-const generateChildrenLayout = (noOfChildren: string) => {
+const generateChildrenLayout = (noOfChildren: string, parentId: number) => {
     return new Array(Number(noOfChildren)).fill(0).map((_, index) => ({
-        i: `${index}`,
+        i: `${parentId}-${index}`,
         x: (index * 2) % 12,
         y: Infinity,
         w: 4,
@@ -30,7 +30,7 @@ export default function GridLayout() {
         setCount(count + 1);
 
         const childrenLayout =
-            Number(noOfChildren) > 0 ? generateChildrenLayout(noOfChildren) : [];
+            Number(noOfChildren) > 0 ? generateChildrenLayout(noOfChildren, count) : [];
 
         setBaseLayout([
             ...baseLayout,
